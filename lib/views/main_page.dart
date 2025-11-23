@@ -41,14 +41,30 @@ class _MainPageState extends State<MainPage> {
     return Scaffold(
       backgroundColor: whiteColor,
       appBar: AppBar(
-        title: const Text('DHE'),
-        backgroundColor: greenColor,
+        title: const Text(
+          'DHE',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 22,
+            letterSpacing: 1.2,
+            color: Colors.green,
+          ),
+        ),
+        centerTitle: true,
+        elevation: 0,
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(
+            bottom: Radius.circular(16),
+          ),
+        ),
         actions: _selectedIndex == 2
             ? [
                 IconButton(
                   icon: const Icon(Icons.logout),
                   onPressed: _handleLogout,
                   tooltip: 'Logout',
+                  color: Colors.green,
                 )
               ]
             : null,
