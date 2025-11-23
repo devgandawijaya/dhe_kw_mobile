@@ -1,6 +1,9 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
+
 import '../routes.dart';
+import '../viewmodels/splash_viewmodel.dart';
 
 class SplashView extends StatefulWidget {
   const SplashView({super.key});
@@ -10,13 +13,24 @@ class SplashView extends StatefulWidget {
 }
 
 class _SplashViewState extends State<SplashView> {
+  late SplashViewModel _viewModel;
+  bool _navigated = false;
+
   @override
   void initState() {
     super.initState();
-    Timer(const Duration(seconds: 3), () {
-      // Navigate to login page after 3 seconds
-      Navigator.pushReplacementNamed(context, Routes.login);
+    _viewModel = SplashViewModel();
+    _viewModel.addListener(() {
+      if (_viewModel.isLoading == false && !_navigated) {
+        _navigated = true;
+        if (_viewModel.isActiveToken == true) {
+          Navigator.pushReplacementNamed(context, '/home');
+        } else {
+          Navigator.pushReplacementNamed(context, Routes.login);
+        }
+      }
     });
+    _viewModel.checkToken();
   }
 
   @override
@@ -25,11 +39,11 @@ class _SplashViewState extends State<SplashView> {
       body: Container(
         color: Colors.white,
         alignment: Alignment.center,
-          child: Image.asset(
-            'assets/dhe.png',
-            height: 180,
-            fit: BoxFit.contain,
-          ),
+        child: Image.asset(
+          'assets/dhe.png',
+          height: 180,
+          fit: BoxFit.contain,
+        ),
       ),
     );
   }

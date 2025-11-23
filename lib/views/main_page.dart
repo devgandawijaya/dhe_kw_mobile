@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:salomon_bottom_bar/salomon_bottom_bar.dart';
 import 'home_view.dart';
 import 'my_absen_view.dart';
@@ -30,10 +31,13 @@ class _MainPageState extends State<MainPage> {
   }
 
   // Handler for logout button
-  void _handleLogout() {
-    // Add logout logic here, e.g. Navigator.pushReplacement to login screen
-    // For now, just print to console
+  void _handleLogout() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+
     print('Logout tapped');
+    if (!mounted) return;
+    Navigator.pushReplacementNamed(context, '/login');
   }
 
   @override

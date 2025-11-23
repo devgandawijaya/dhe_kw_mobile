@@ -48,4 +48,24 @@ class ApiService {
       throw Exception('Failed to login: ${e.message}');
     }
   }
+
+  Future<bool> checkToken(String nip, String token) async {
+    try {
+      final response = await _dio.post(
+        'http://31.97.222.142:2100/api/check_token',
+        queryParameters: {
+          'username': nip,
+          'token': token,
+        },
+      );
+      final data = response.data;
+      if (data != null && data is Map<String, dynamic>) {
+        return data['active_token'] ?? false;
+      } else {
+        return false;
+      }
+    } catch (e) {
+      return false;
+    }
+  }
 }
