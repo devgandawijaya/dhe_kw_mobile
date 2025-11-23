@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import '../models/user_model.dart';
 
 class ApiService {
   final Dio _dio;
@@ -26,4 +27,25 @@ class ApiService {
   }
 
   // Add other HTTP methods as needed (post, put, delete etc.)
+
+  Future<UserModel> login(String username, String password) async {
+    try {
+      final response = await _dio.post(
+        'http://31.97.222.142:2100/api/login',
+        data: {
+          'username': username,
+          'password': password,
+        },
+        options: Options(contentType: Headers.jsonContentType),
+      );
+      if (response.data['success'] == true) {
+        final userJson = response.data['user'];
+        return UserModel.fromJson(userJson);
+      } else {
+        throw Exception(response.data['message'] ?? 'Login failed');
+      }
+    } on DioError catch (e) {
+      throw Exception('Failed to login: ${e.message}');
+    }
+  }
 }
