@@ -1,6 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:salomon_bottom_bar/salomon_bottom_bar.dart';
+import '../models/user_model.dart' show UserModel;
 import 'home_view.dart';
 import 'my_absen_view.dart';
 import 'my_profil_view.dart';
@@ -13,6 +16,7 @@ class MainPage extends StatefulWidget {
 }
 
 class _MainPageState extends State<MainPage> {
+    UserModel? _user;
   int _selectedIndex = 0;
 
   static const Color greenColor = Color(0xFF4CAF50); // Green color
@@ -30,6 +34,24 @@ class _MainPageState extends State<MainPage> {
     });
   }
 
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();  
+  }
+
+
+  Future<void> _loadUserData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userJson = prefs.getString('user');
+    if (userJson != null) {
+      final userMap = json.decode(userJson);
+      setState(() {
+        _user = UserModel.fromJson(userMap);
+      });
+    }
+  }
+
   // Handler for logout button
   void _handleLogout() async {
     final prefs = await SharedPreferences.getInstance();
@@ -45,15 +67,20 @@ class _MainPageState extends State<MainPage> {
     return Scaffold(
       backgroundColor: whiteColor,
       appBar: AppBar(
-        title: const Text(
-          'DHE',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 22,
-            letterSpacing: 1.2,
-            color: Colors.green,
-          ),
-        ),
+  title: Text(
+  'welcome, ${_user?.nama == null 
+      ? "" 
+      : _user!.nama.length > 10 
+          ? _user!.nama.substring(0, 10) + "..." 
+          : _user!.nama}',
+  overflow: TextOverflow.visible,
+  style: TextStyle(
+    fontWeight: FontWeight.bold,
+    fontSize: 22,
+    letterSpacing: 1.2,
+    color: Colors.green,
+  ),
+),
         centerTitle: true,
         elevation: 0,
         backgroundColor: Colors.white,

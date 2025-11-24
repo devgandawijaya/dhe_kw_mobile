@@ -1,0 +1,117 @@
+{'title': 'Item 1', 'subtitle': 'This is the subtitle for item 1'},
+    {'title': 'Item 2', 'subtitle': 'This is the subtitle for item 2'},
+    {'title': 'Item 3', 'subtitle': 'This is the subtitle for item 3'},
+    {'title': 'Item 4', 'subtitle': 'This is the subtitle for item 4'},
+    {'title': 'Item 5', 'subtitle': 'This is the subtitle for item 5'},
+  ];
+=======
+
+  final List<Map<String, String>> _items = [
+    {
+      'title': 'Sunset Over the Mountains',
+      'subtitle': 'A beautiful sunset scene over the mountain range.',
+      'imageUrl':
+          'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80',
+    },
+    {
+      'title': 'City Skyline',
+      'subtitle': 'The city skyline at night with glowing lights.',
+      'imageUrl':
+          'https://images.unsplash.com/photo-1494526585095-c41746248156?auto=format&fit=crop&w=800&q=80',
+    },
+    {
+      'title': 'Forest Pathway',
+      'subtitle': 'A peaceful pathway through the forest.',
+      'imageUrl':
+          'https://images.unsplash.com/photo-1519125323398-675f0ddb6308?auto=format&fit=crop&w=800&q=80',
+    },
+    {
+      'title': 'Beach Vibes',
+      'subtitle': 'Relaxing beach with clear blue water and sky.',
+      'imageUrl':
+          'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80',
+    },
+    {
+      'title': 'Desert Dunes',
+      'subtitle': 'Rolling dunes under a bright blue sky.',
+      'imageUrl':
+          'https://images.unsplash.com/photo-1500534623283-312aade485b7?auto=format&fit=crop&w=800&q=80',
+    },
+  ];
+>>>>>>> REPLACE
+
+<<<<<<< SEARCH
+                    ..._dummyItems.map((item) => Card(
+                      margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 0),
+                      child: ListTile(
+                        title: Text(item['title'] ?? ''),
+                        subtitle: Text(item['subtitle'] ?? ''),
+                        trailing: const Icon(Icons.arrow_forward_ios),
+                        onTap: () {
+                          showModalBottomSheet(
+                            context: context,
+                            builder: (context) {
+                              return Padding(
+                                padding: const EdgeInsets.all(16.0),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(item['title'] ?? '', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                                    const SizedBox(height: 8),
+                                    Text(item['subtitle'] ?? ''),
+                                    const SizedBox(height: 16),
+                                    ElevatedButton(
+                                      onPressed: () {
+                                        Navigator.of(context).pop();
+                                      },
+                                      child: const Text('Close'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }
+                          );
+                        },
+                      ),
+                    )).toList(),
+=======
+                    ..._items.map((item) => NewsItem(
+                      title: item['title'] ?? '',
+                      subtitle: item['subtitle'] ?? '',
+                      imageUrl: item['imageUrl'] ?? '',
+                      titleStyle: HomeView._newsTitleStyle,
+                      subtitleStyle: HomeView._newsSubtitleStyle,
+                      onTap: () {
+                          showModalBottomSheet(
+                            context: context,
+                            isScrollControlled: true,
+                            builder: (context) {
+                              return Center(
+                                child: Container(
+                                  constraints: BoxConstraints(
+                                    maxWidth: 600,
+                                  ),
+                                  padding: const EdgeInsets.all(16.0),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(item['title'] ?? '', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                                      const SizedBox(height: 8),
+                                      Text(item['subtitle'] ?? ''),
+                                      const SizedBox(height: 16),
+                                      ElevatedButton(
+                                        onPressed: () {
+                                          Navigator.of(context).pop();
+                                        },
+                                        child: const Text('Close'),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          );
+                      },
+                    )).toList(),
