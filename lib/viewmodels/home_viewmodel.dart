@@ -88,6 +88,7 @@ class HomeViewModel extends ChangeNotifier {
     required String filepath,
     required String nip,
     required String tgl,
+    required String latlong,
     required int jenisAbsen,
   }) async {
     // Replace package name in filepath
@@ -102,6 +103,7 @@ class HomeViewModel extends ChangeNotifier {
     print('filepath: $modifiedFilePath');
     print('nip: $nip');
     print('tgl: $tgl');
+    print('latlong: $latlong');
     print('jenisAbsen: $jenisAbsen');
 
     // Optionally, you can add API call here later

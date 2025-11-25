@@ -17,7 +17,9 @@ import '../viewmodels/home_viewmodel.dart';
 import '../models/user_model.dart';
 
 class AbsenView extends StatefulWidget {
-  const AbsenView({Key? key}) : super(key: key);
+  const AbsenView({Key? key, this.skpdId}) : super(key: key);
+
+  final int? skpdId;
 
   @override
   _AbsenViewState createState() => _AbsenViewState();
@@ -29,10 +31,25 @@ class _AbsenViewState extends State<AbsenView> {
   File? _imageFile;
   final ImagePicker _picker = ImagePicker();
 
+   int? skpdId; // ← Penting!
+
+
    @override
   void initState() {
     super.initState();
-    _loadUserData();  
+    _loadUserData();
+    skpdId = widget.skpdId; // ← Ambil dari constructor
+    print("SKPD ID: $skpdId");
+  }
+
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    // Ambil nilai hanya sekali
+    skpdId ??= ModalRoute.of(context)!.settings.arguments as int?;
+    print("SKPD ID: $skpdId");
   }
 
 
@@ -68,6 +85,17 @@ class _AbsenViewState extends State<AbsenView> {
       return null;
     }
   }
+
+   String getAbsenType(int? skpdId) {
+     switch (skpdId) {
+       case 1:
+         return "Absen Masuk";
+       case 2:
+         return "Absen Pulang";
+       default:
+         return "Tidak diketahui";
+     }
+   }
 
   Future<Map<String, dynamic>?> _getCoordinateData() async {
     final coordinateBox = Hive.box('coordinateBox');
@@ -191,7 +219,7 @@ class _AbsenViewState extends State<AbsenView> {
         String? ipAddress = await _getIpAddress();
 
         String watermarkText = '''
-Status: absen masuk
+Status: ${getAbsenType(skpdId)}
 IMEI HP: null
 APIP: $ipAddress
 LAT-LONG: $latLong
@@ -214,10 +242,7 @@ dhe bdg kab $currentYear
   }
 
   void _absen() async {
-    print('Nip :: ${_user?.nip ?? 'Nip null'}');
-    print('Lat: ${_lokasiModel?.lat ?? 'Lat null'}');
-    print('Long: ${_lokasiModel?.long ?? 'Long null'}');
-
+     
     if (_imageFile == null) {
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Silakan ambil photo terlebih dahulu.')));
@@ -225,11 +250,7 @@ dhe bdg kab $currentYear
     }
 
     final homeViewModel = Provider.of<HomeViewModel>(context, listen: false);
-    final UserModel? user = homeViewModel.user;
-    String nip = (user?.nip ?? '').trim();
-    if (nip.isEmpty) {
-      nip = 'N/A';
-    }
+
     final String filename = 'laporan';
     final String filepath = _imageFile!.path;
     final String tgl = DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now());
@@ -238,8 +259,9 @@ dhe bdg kab $currentYear
     await homeViewModel.sendAttendanceData(
       filename: filename,
       filepath: filepath,
-      nip: nip,
+      nip: _user!.nip,
       tgl: tgl,
+      latlong: "${_lokasiModel?.lat ?? ''} ${_lokasiModel?.long ?? ''}",
       jenisAbsen: jenisAbsen,
     );
 
@@ -250,6 +272,9 @@ dhe bdg kab $currentYear
 
   @override
   Widget build(BuildContext context) {
+
+    final skpdId = ModalRoute.of(context)!.settings.arguments as int?;
+
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(

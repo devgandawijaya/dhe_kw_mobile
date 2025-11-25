@@ -26,10 +26,15 @@ class RouteGenerator {
       case Routes.login:
         return MaterialPageRoute(builder: (_) => const LoginView());
       case Routes.absenView:
-        return MaterialPageRoute(builder: (_) => ChangeNotifierProvider(
-          create: (_) => HomeViewModel(),
-          child: const AbsenView(),
-        ));
+        return MaterialPageRoute(
+          builder: (context) {
+            final skpdId = settings.arguments as int?;
+            return ChangeNotifierProvider(
+              create: (_) => HomeViewModel(),
+              child: AbsenView(skpdId: skpdId),
+            );
+          },
+        );
       case Routes.pulangView:
         return MaterialPageRoute(builder: (_) => const PulangView());
       default:

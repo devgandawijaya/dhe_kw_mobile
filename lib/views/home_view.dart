@@ -187,9 +187,13 @@ class _HomeViewState extends State<HomeView> {
                             //   final response = await _homeViewModel.postAttendance(1);
                             //   if (response['jammasuk'] == null || response['jammasuk'].toString().isEmpty) {
                             //     // Navigate to absen_view page
-                                if (context.mounted) {
-                                  Navigator.pushNamed(context, '/absen_view');
-                                }
+                            if (context.mounted) {
+                              Navigator.pushNamed(
+                                context,
+                                '/absen_view',
+                                arguments: 1,   // integer dikirim ke halaman berikutnya
+                              );
+                            }
                             //   } else {
                             //     // Show dialog "anda sudah absen masuk"
                             //     if (context.mounted) {
