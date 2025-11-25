@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:dhe/models/lokasi_model.dart';
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import 'package:geolocator/geolocator.dart';
@@ -13,6 +14,9 @@ class HomeViewModel extends ChangeNotifier {
   UserModel? _user;
 
   UserModel? get user => _user;
+
+  LokasiModel? _lokasi;
+  LokasiModel? get lokasi => _lokasi;
 
   set user(UserModel? user) {
     _user = user;
@@ -46,18 +50,14 @@ class HomeViewModel extends ChangeNotifier {
         longDevice: position.longitude.toString(),
       );
 
-      if (data != null) {
-        final coordinateBox = Hive.box('coordinateBox');
-        if (data is List && data.isNotEmpty) {
-          await coordinateBox.put('coordinate_data', json.encode(data[0]));
-          print('testing 1 ${json.encode(data[0]).toString()}');
-        } else if (data is Map) {
-          await coordinateBox.put('coordinate_data', json.encode(data));
-          print('testing 1 ${json.encode(data).toString()}');
-        } else {
-          print('Unexpected data format: $data');
-        }
-      }
+      _lokasi = lokasi;
+
+      // Save user data to Hive box as JSON string
+      final userBox = Hive.box('coordinateBox');
+      final userJson = json.encode(data.toJson());
+      await userBox.put('coordinate_data', userJson);
+      print('coordinateBox :::  ${json.encode(data.toJson())}');
+
     } catch (e) {
       // Optionally handle or log error
       print('testing 2 ${e.toString()}');

@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'dart:convert';  // Add this import for jsonDecode
 // Removed import 'dart:ui' as ui;
 
+import 'package:dhe/models/lokasi_model.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
@@ -24,6 +25,7 @@ class AbsenView extends StatefulWidget {
 
 class _AbsenViewState extends State<AbsenView> {
    UserModel? _user;
+   LokasiModel? _lokasiModel;
   File? _imageFile;
   final ImagePicker _picker = ImagePicker();
 
@@ -38,10 +40,21 @@ class _AbsenViewState extends State<AbsenView> {
   Future<void> _loadUserData() async {
     final box = await Hive.openBox('userBox');
     final userJson = box.get('user');
+
+    final coordinate = await Hive.openBox('coordinateBox');
+    final coordinateJson = coordinate.get('coordinate_data');
+
     if (userJson != null) {
       final userMap = json.decode(userJson);
       setState(() {
         _user = UserModel.fromJson(userMap);
+      });
+    }
+
+    if (coordinateJson != null) {
+      final coordinateMap = json.decode(coordinateJson);
+      setState(() {
+        _lokasiModel = LokasiModel.fromJson(coordinateMap);
       });
     }
   }
@@ -171,41 +184,11 @@ class _AbsenViewState extends State<AbsenView> {
           await _picker.pickImage(source: ImageSource.camera);
       if (pickedFile != null) {
         // Prepare watermark text
-        final homeViewModel = Provider.of<HomeViewModel>(context, listen: false);
-        final UserModel? user = homeViewModel.user;
 
-        String nip = (user?.nip ?? '').trim();
-        print('Debug: user.nip = $nip');
-        if (nip.isEmpty) {
-          nip = 'N/A';
-        }
-
+        String nip = _user?.nip ?? '';
         String currentYear = DateFormat('yyyy').format(DateTime.now());
-
-        Map<String, dynamic>? coordinateData = await _getCoordinateData();
-        print('Debug: coordinateData = $coordinateData');
-
-        String latLong = '';
-        if (coordinateData != null &&
-            coordinateData['lat'] != null &&
-            coordinateData['long'] != null) {
-          final lat = coordinateData['lat'].toString().trim();
-          final long = coordinateData['long'].toString().trim();
-          latLong = '$lat, $long';
-        } else if (user != null &&
-            user.lat.isNotEmpty &&
-            user.long.isNotEmpty) {
-          latLong = '${user.lat.trim()}, ${user.long.trim()}';
-        }
-        latLong = latLong.trim();
-        print('Debug: latLong = $latLong');
-        if (latLong.isEmpty) {
-          latLong = 'N/A';
-        }
-
+        String latLong = "${_lokasiModel?.lat ?? ''} ${_lokasiModel?.long ?? ''}";
         String? ipAddress = await _getIpAddress();
-        ipAddress ??= ''; // fallback empty string if null
-        print('Debug: ipAddress = $ipAddress');
 
         String watermarkText = '''
 Status: absen masuk
@@ -231,7 +214,10 @@ dhe bdg kab $currentYear
   }
 
   void _absen() async {
-    print('Data-datanya: $_user');
+    print('Nip :: ${_user?.nip ?? 'Nip null'}');
+    print('Lat: ${_lokasiModel?.lat ?? 'Lat null'}');
+    print('Long: ${_lokasiModel?.long ?? 'Long null'}');
+
     if (_imageFile == null) {
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Silakan ambil photo terlebih dahulu.')));

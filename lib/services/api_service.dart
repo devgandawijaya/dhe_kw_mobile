@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
+import '../models/lokasi_model.dart' show LokasiModel;
 import '../models/user_model.dart';
 
 class ApiService {
@@ -51,7 +52,7 @@ class ApiService {
     }
   }
 
-  Future<dynamic> checkCoordinate({
+  Future<LokasiModel> checkCoordinate({
     required int userId,
     required String latDevice,
     required String longDevice,
@@ -68,14 +69,8 @@ class ApiService {
       );
 
       if (response.data['success'] == true) {
-        final data = response.data['data'];
-        if (data is Map<String, dynamic>) {
-          return data;
-        } else if (data is List) {
-          return data;
-        } else {
-          throw Exception('Unexpected data type from API');
-        }
+        final userJson = response.data['data'];
+        return LokasiModel.fromJson(userJson);
       } else {
         throw Exception(response.data['message'] ?? 'Coordinate check failed');
       }
