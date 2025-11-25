@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import '../models/user_model.dart';
 
@@ -99,6 +101,46 @@ class ApiService {
       }
     } catch (e) {
       return false;
+    }
+  }
+
+  Future<Map<String, dynamic>> postAttendance({
+    required int pegawaiId,
+    required String tgl,
+    required int jenisAttedance,
+  }) async {
+    try {
+      final response = await _dio.post(
+        'https://e-absensi.bandungkab.go.id/api/stsAbsenToday',
+        data: {
+          'pegawai_id': pegawaiId.toString(),
+          'tgl': tgl,
+          'jenis_attedance': jenisAttedance.toString(),
+        },
+        options: Options(contentType: Headers.formUrlEncodedContentType),
+      );
+
+      if (response.statusCode == 200) {
+        if (response.data is Map<String, dynamic>) {
+          return response.data;
+        } else if (response.data is String) {
+          // Parse string response if needed
+          return jsonDecode(response.data) as Map<String, dynamic>;
+        } else if (response.data is List) {
+          if (response.data.isEmpty) {
+            // Return empty map on empty list response to avoid error
+            return {};
+          } else {
+            throw Exception('Unexpected non-empty list response format');
+          }
+        } else {
+          throw Exception('Unexpected response format');
+        }
+      } else {
+        throw Exception('API call failed with status: ${response.statusCode}');
+      }
+    } on DioError catch (e) {
+      throw Exception('Failed to post attendance: ${e.message}');
     }
   }
 }

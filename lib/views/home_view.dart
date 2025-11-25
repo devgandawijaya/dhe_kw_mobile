@@ -182,13 +182,93 @@ class _HomeViewState extends State<HomeView> {
                           icon: Icons.inbox_rounded,
                           label: 'Masuk',
                           labelStyle: HomeView._menuLabelStyle,
-                          onTap: () {},
+                          onTap: () async {
+                            try {
+                              final response = await _homeViewModel.postAttendance(1);
+                              if (response['jammasuk'] == null || response['jammasuk'].toString().isEmpty) {
+                                // Navigate to absen_view page
+                                if (context.mounted) {
+                                  Navigator.pushNamed(context, '/absen_view');
+                                }
+                              } else {
+                                // Show dialog "anda sudah absen masuk"
+                                if (context.mounted) {
+                                  showModalBottomSheet(
+                                    context: context,
+                                    builder: (context) => Container(
+                                      padding: const EdgeInsets.all(16),
+                                      child: Text(
+                                        'Anda sudah absen masuk',
+                                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ),
+                                  );
+                                }
+                              }
+                            } catch (e) {
+                              // Handle errors, show some feedback
+                              if (context.mounted) {
+                                showModalBottomSheet(
+                                  context: context,
+                                  builder: (context) => Container(
+                                    padding: const EdgeInsets.all(16),
+                                    child: Text(
+                                      'Anda Belum Absen Masuk',
+                                      style: const TextStyle(fontSize: 16, color: Colors.red),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ),
+                                );
+                              }
+                            }
+                          },
                         ),
                         _MenuItem(
                           icon: Icons.person,
                           label: 'Pulang',
                           labelStyle: HomeView._menuLabelStyle,
-                          onTap: () {},
+                          onTap: () async {
+                            try {
+                              final response = await _homeViewModel.postAttendance(2);
+                              if (response['jampulang'] == null || response['jampulang'].toString().isEmpty) {
+                                // Navigate to pulang_view page
+                                if (context.mounted) {
+                                  Navigator.pushNamed(context, '/pulang_view');
+                                }
+                              } else {
+                                // Show dialog "anda sudah absen pulang"
+                                if (context.mounted) {
+                                  showModalBottomSheet(
+                                    context: context,
+                                    builder: (context) => Container(
+                                      padding: const EdgeInsets.all(16),
+                                      child: Text(
+                                        'Anda sudah absen pulang',
+                                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ),
+                                  );
+                                }
+                              }
+                            } catch (e) {
+                              // Handle errors, show some feedback
+                              if (context.mounted) {
+                                showModalBottomSheet(
+                                  context: context,
+                                  builder: (context) => Container(
+                                    padding: const EdgeInsets.all(16),
+                                    child: Text(
+                                      'Anda Hari Ini Belum Absen Pulang',
+                                      style: const TextStyle(fontSize: 16, color: Colors.red),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ),
+                                );
+                              }
+                            }
+                          },
                         ),
                         _MenuItem(
                           icon: Icons.settings,

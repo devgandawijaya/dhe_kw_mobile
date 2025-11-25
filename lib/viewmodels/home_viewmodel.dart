@@ -6,6 +6,9 @@ import 'package:geolocator/geolocator.dart';
 import '../models/user_model.dart';
 import '../services/api_service.dart';
 
+import 'dart:convert';
+import 'package:intl/intl.dart';
+
 class HomeViewModel extends ChangeNotifier {
   UserModel? _user;
 
@@ -59,6 +62,25 @@ class HomeViewModel extends ChangeNotifier {
     } catch (e) {
       // Optionally handle or log error
       print('testing 2 ${e.toString()}');
+    }
+  }
+
+  Future<Map<String, dynamic>> postAttendance(int jenisAttendance) async {
+    if (_user == null) {
+      throw Exception('User is not logged in');
+    }
+    final apiService = ApiService();
+    final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+
+    try {
+      final response = await apiService.postAttendance(
+        pegawaiId: _user!.pegawaiId,
+        tgl: today,
+        jenisAttedance: jenisAttendance,
+      );
+      return response;
+    } catch (e) {
+      throw Exception('Error posting attendance: $e');
     }
   }
 }
