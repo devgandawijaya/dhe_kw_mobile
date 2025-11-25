@@ -56,5 +56,7 @@
 	<string>This app requires location access to provide location-based features even when the app is in the background.</string>
 	<key>NSLocationUsageDescription</key>
 	<string>This app requires location access to provide location-based features.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>This app requires camera access to take photos.</string>
 </dict>
 </plist>
