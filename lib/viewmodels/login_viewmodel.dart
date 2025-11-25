@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:hive/hive.dart';
 
 import '../models/user_model.dart';
 import '../services/api_service.dart';
@@ -27,10 +27,10 @@ class LoginViewModel extends ChangeNotifier {
       final user = await _apiService.login(username, password);
       _user = user;
 
-      // Save user data to shared_preferences as JSON string
-      final prefs = await SharedPreferences.getInstance();
+      // Save user data to Hive box as JSON string
+      final userBox = Hive.box('userBox');
       final userJson = json.encode(user.toJson());
-      await prefs.setString('user', userJson);
+      await userBox.put('user', userJson);
 
       _isLoading = false;
       notifyListeners();

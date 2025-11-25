@@ -1,7 +1,8 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:hive/hive.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:salomon_bottom_bar/salomon_bottom_bar.dart';
 import '../models/user_model.dart' show UserModel;
 import 'home_view.dart';
@@ -41,9 +42,10 @@ class _MainPageState extends State<MainPage> {
   }
 
 
+
   Future<void> _loadUserData() async {
-    final prefs = await SharedPreferences.getInstance();
-    final userJson = prefs.getString('user');
+    final box = await Hive.openBox('userBox');
+    final userJson = box.get('user');
     if (userJson != null) {
       final userMap = json.decode(userJson);
       setState(() {
@@ -52,10 +54,11 @@ class _MainPageState extends State<MainPage> {
     }
   }
 
+
   // Handler for logout button
   void _handleLogout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
+    final box = await Hive.openBox('userBox');
+    await box.clear();
 
     print('Logout tapped');
     if (!mounted) return;

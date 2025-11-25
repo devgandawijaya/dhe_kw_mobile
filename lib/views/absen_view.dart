@@ -6,7 +6,7 @@ import 'dart:convert';  // Add this import for jsonDecode
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:hive/hive.dart';
 import 'package:intl/intl.dart';
 import 'package:dart_ipify/dart_ipify.dart';
 import 'package:image/image.dart' as img;
@@ -23,8 +23,28 @@ class AbsenView extends StatefulWidget {
 }
 
 class _AbsenViewState extends State<AbsenView> {
+   UserModel? _user;
   File? _imageFile;
   final ImagePicker _picker = ImagePicker();
+
+   @override
+  void initState() {
+    super.initState();
+    _loadUserData();  
+  }
+
+
+
+  Future<void> _loadUserData() async {
+    final box = await Hive.openBox('userBox');
+    final userJson = box.get('user');
+    if (userJson != null) {
+      final userMap = json.decode(userJson);
+      setState(() {
+        _user = UserModel.fromJson(userMap);
+      });
+    }
+  }
 
   Future<String?> _getIpAddress() async {
     try {
@@ -37,8 +57,8 @@ class _AbsenViewState extends State<AbsenView> {
   }
 
   Future<Map<String, dynamic>?> _getCoordinateData() async {
-    final prefs = await SharedPreferences.getInstance();
-    final coordString = prefs.getString('coordinate_data');
+    final coordinateBox = Hive.box('coordinateBox');
+    final coordString = coordinateBox.get('coordinate_data');
     if (coordString != null) {
       try {
         final Map<String, dynamic> data = Map<String, dynamic>.from(
@@ -211,6 +231,7 @@ dhe bdg kab $currentYear
   }
 
   void _absen() async {
+    print('Data-datanya: $_user');
     if (_imageFile == null) {
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Silakan ambil photo terlebih dahulu.')));

@@ -23,11 +23,13 @@ class _SplashViewState extends State<SplashView> {
     _viewModel.addListener(() {
       if (_viewModel.isLoading == false && !_navigated) {
         _navigated = true;
-        if (_viewModel.isActiveToken == true) {
-          Navigator.pushReplacementNamed(context, '/home');
-        } else {
-          Navigator.pushReplacementNamed(context, Routes.login);
-        }
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_viewModel.isActiveToken == true) {
+            Navigator.pushReplacementNamed(context, '/home');
+          } else {
+            Navigator.pushReplacementNamed(context, Routes.login);
+          }
+        });
       }
     });
     _viewModel.checkToken();

@@ -92,7 +92,7 @@ class ApiService {
           'username': nip,
           'token': token,
         },
-      );
+      ).timeout(const Duration(seconds: 3));;
       final data = response.data;
       if (data != null && data is Map<String, dynamic>) {
         return data['active_token'] ?? false;

@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:hive/hive.dart';
 import 'package:geolocator/geolocator.dart';
 
 import '../models/user_model.dart';
@@ -104,8 +104,8 @@ class _HomeViewState extends State<HomeView> {
   }
 
   Future<void> _loadUserData() async {
-    final prefs = await SharedPreferences.getInstance();
-    final userJson = prefs.getString('user');
+    final userBox = Hive.box('userBox');
+    final userJson = userBox.get('user');
     if (userJson != null) {
       final userMap = json.decode(userJson);
       setState(() {

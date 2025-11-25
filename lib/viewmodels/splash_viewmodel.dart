@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 
 import '../models/user_model.dart';
 import '../services/api_service.dart';
@@ -23,40 +23,38 @@ class SplashViewModel extends ChangeNotifier {
 
   Future<void> checkToken() async {
     _isLoading = true;
-    _errorMessage = null;
     notifyListeners();
 
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final userJson = prefs.getString('user');
+      final box = Hive.box('userBox');
+      final userJson = box.get('user');
 
       if (userJson == null) {
-        _isActiveToken = false;
-        _isLoading = false;
-        notifyListeners();
+        _setResult(false);
         return;
       }
 
-      final userMap = json.decode(userJson) as Map<String, dynamic>;
+      final userMap = json.decode(userJson);
       final user = UserModel.fromJson(userMap);
 
       if (user.nip.isEmpty || user.token.isEmpty) {
-        _isActiveToken = false;
-        _isLoading = false;
-        notifyListeners();
+        _setResult(false);
         return;
       }
 
-      final isActive =
-          await _apiService.checkToken(user.nip, user.token);
-      _isActiveToken = isActive;
-    } catch (e, stacktrace) {
-      _errorMessage = e.toString();
-      _isActiveToken = false;
-      debugPrint('Error in SplashViewModel.checkToken: $e');
-      debugPrint('Stacktrace: $stacktrace');
-    }
+      final isActive = await _apiService
+          .checkToken(user.nip, user.token)
+          .timeout(const Duration(seconds: 3), onTimeout: () => false);
 
+      _setResult(isActive);
+    } catch (e) {
+      _setResult(false);
+    }
+  }
+
+
+  void _setResult(bool value) {
+    _isActiveToken = value;
     _isLoading = false;
     notifyListeners();
   }

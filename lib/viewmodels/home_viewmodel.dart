@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:hive/hive.dart';
 import 'package:geolocator/geolocator.dart';
 
 import '../models/user_model.dart';
@@ -47,13 +47,12 @@ class HomeViewModel extends ChangeNotifier {
       );
 
       if (data != null) {
+        final coordinateBox = Hive.box('coordinateBox');
         if (data is List && data.isNotEmpty) {
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setString('coordinate_data', json.encode(data[0]));
+          await coordinateBox.put('coordinate_data', json.encode(data[0]));
           print('testing 1 ${json.encode(data[0]).toString()}');
         } else if (data is Map) {
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setString('coordinate_data', json.encode(data));
+          await coordinateBox.put('coordinate_data', json.encode(data));
           print('testing 1 ${json.encode(data).toString()}');
         } else {
           print('Unexpected data format: $data');
