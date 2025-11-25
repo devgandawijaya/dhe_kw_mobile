@@ -1,9 +1,11 @@
 import 'package:dhe/views/pulang_view.dart' show PulangView;
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'views/login_view.dart';
 import 'views/splash_view.dart';
 import 'views/main_page.dart';
 import 'views/absen_view.dart';
+import '../viewmodels/home_viewmodel.dart';
 
 class Routes {
   static const String splash = '/';
@@ -24,7 +26,10 @@ class RouteGenerator {
       case Routes.login:
         return MaterialPageRoute(builder: (_) => const LoginView());
       case Routes.absenView:
-        return MaterialPageRoute(builder: (_) => const AbsenView());
+        return MaterialPageRoute(builder: (_) => ChangeNotifierProvider(
+          create: (_) => HomeViewModel(),
+          child: const AbsenView(),
+        ));
       case Routes.pulangView:
         return MaterialPageRoute(builder: (_) => const PulangView());
       default:

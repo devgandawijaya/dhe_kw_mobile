@@ -1,7 +1,18 @@
 import 'dart:io';
+import 'dart:typed_data';
+import 'dart:convert';  // Add this import for jsonDecode
+// Removed import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:intl/intl.dart';
+import 'package:dart_ipify/dart_ipify.dart';
+import 'package:image/image.dart' as img;
+
+import '../viewmodels/home_viewmodel.dart';
+import '../models/user_model.dart';
 
 class AbsenView extends StatefulWidget {
   const AbsenView({Key? key}) : super(key: key);
@@ -14,16 +25,143 @@ class _AbsenViewState extends State<AbsenView> {
   File? _imageFile;
   final ImagePicker _picker = ImagePicker();
 
+  Future<String?> _getIpAddress() async {
+    try {
+      final ip = await Ipify.ipv4();
+      return ip;
+    } catch (e) {
+      print('Error getting IP address: $e');
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> _getCoordinateData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final coordString = prefs.getString('coordinate_data');
+    if (coordString != null) {
+      try {
+        final Map<String, dynamic> data = Map<String, dynamic>.from(
+            await Future.value(jsonDecode(coordString)));
+        return data;
+      } catch (e) {
+        print('Error decoding coordinate_data: $e');
+      }
+    }
+    return null;
+  }
+
+  Future<File> _addWatermark(File originalImage, String watermarkText) async {
+    final bytes = await originalImage.readAsBytes();
+    img.Image? original = img.decodeImage(bytes);
+
+    if (original == null) {
+      throw Exception('Failed to decode image');
+    }
+
+    // Resize the image to 750x1000 to meet requirements (portrait)
+    final resized = img.copyResize(original, width: 750, height: 1000);
+
+    // Draw watermark background rectangle for contrast on left side only with smaller width
+    const padding = 12;
+    const watermarkFontSize = 24;
+    final lines = watermarkText.split('\n');
+    int totalHeight = lines.length * (watermarkFontSize + 8);
+
+    // Define watermark rectangle dimensions: narrow vertical bar on left
+    int rectWidth = 200; // limited width to avoid face covering
+    int x1 = padding ~/ 2;
+    int y1 = resized.height - totalHeight - padding;
+    int x2 = x1 + rectWidth;
+    int y2 = resized.height - padding ~/ 2;
+
+    img.fillRect(
+      resized,
+      x1: x1,
+      y1: y1,
+      x2: x2,
+      y2: y2,
+      color: img.ColorUint8.rgba(0, 0, 0, 128), // 50% opacity black
+    );
+
+    // Draw each line of watermark text along the left side area with shadow
+    int y = y1 + 4; // small offset from rectangle top
+    for (String line in lines) {
+      // Draw shadow (black, offset +1,+1)
+      img.drawString(
+        resized,
+        line,
+        font: img.arial24,
+        x: x1 + padding,
+        y: y + 1,
+        color: img.ColorUint8.rgba(0, 0, 0, 200),
+      );
+
+      // Draw main text (white, semi-transparent)
+      img.drawString(
+        resized,
+        line,
+        font: img.arial24,
+        x: x1 + padding,
+        y: y,
+        color: img.ColorUint8.rgba(255, 255, 255, 180),
+      );
+
+      y += watermarkFontSize + 8;
+    }
+
+    // Create temporary file to save watermarked image
+    final tempDir = Directory.systemTemp;
+    final tempFile = File('${tempDir.path}/${DateTime.now().millisecondsSinceEpoch}.png');
+
+    await tempFile.writeAsBytes(img.encodePng(resized));
+
+    return tempFile;
+  }
+
   Future<void> _takePhoto() async {
     try {
-      final XFile? pickedFile = await _picker.pickImage(source: ImageSource.camera);
+      final XFile? pickedFile =
+          await _picker.pickImage(source: ImageSource.camera);
       if (pickedFile != null) {
+        // Prepare watermark text
+        final homeViewModel = Provider.of<HomeViewModel>(context, listen: false);
+        final UserModel? user = homeViewModel.user;
+
+        String nip = user?.nip ?? '';
+        String currentYear = DateFormat('yyyy').format(DateTime.now());
+
+        Map<String, dynamic>? coordinateData = await _getCoordinateData();
+
+        String latLong = '';
+        if (coordinateData != null &&
+            coordinateData['lat'] != null &&
+            coordinateData['long'] != null) {
+          latLong = '${coordinateData['lat']}, ${coordinateData['long']}';
+        } else if (user != null && user.lat.isNotEmpty && user.long.isNotEmpty) {
+          latLong = '${user.lat}, ${user.long}';
+        }
+
+        String? ipAddress = await _getIpAddress();
+        ipAddress ??= ''; // fallback empty string if null
+
+        String watermarkText = '''
+        Status: absen masuk
+        IMEI HP: null
+        APIP: $ipAddress
+        LAT-LONG: $latLong
+        TGL-JAM: ${DateFormat('dd/MM/yyyy HH:mm:ss').format(DateTime.now())}
+        NIP: $nip
+        dhe bdg kab $currentYear
+        ''';
+
+        File watermarkedFile =
+            await _addWatermark(File(pickedFile.path), watermarkText);
+
         setState(() {
-          _imageFile = File(pickedFile.path);
+          _imageFile = watermarkedFile;
         });
       }
     } catch (e) {
-      // Handle errors if needed
       ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Gagal mengambil photo: $e')));
     }
@@ -35,9 +173,8 @@ class _AbsenViewState extends State<AbsenView> {
           const SnackBar(content: Text('Silakan ambil photo terlebih dahulu.')));
       return;
     }
-    // Placeholder for attendance logic
-    ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Absen berhasil')));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('Absen berhasil')));
   }
 
   @override
@@ -60,19 +197,19 @@ class _AbsenViewState extends State<AbsenView> {
           children: [
             Card(
               elevation: 4,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
+              shape:
+                  RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               child: Container(
-                height: 250,
-                width: double.infinity,
-                alignment: Alignment.center,
-                child: _imageFile == null
-                    ? const Text(
-                        'Belum ada photo',
-                        style: TextStyle(fontSize: 18, color: Colors.grey),
-                      )
-                    : Image.file(_imageFile!, fit: BoxFit.cover),
-              ),
+              height: 250,
+              width: double.infinity,
+              alignment: Alignment.center,
+              child: _imageFile == null
+                  ? const Text(
+                      'Belum ada photo',
+                      style: TextStyle(fontSize: 18, color: Colors.grey),
+                    )
+                  : Image.file(_imageFile!, fit: BoxFit.contain),
+            ),
             ),
             const SizedBox(height: 20),
             SizedBox(
