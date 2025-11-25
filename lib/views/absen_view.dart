@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import 'package:dart_ipify/dart_ipify.dart';
 import 'package:image/image.dart' as img;
+import 'package:path_provider/path_provider.dart';
 
 import '../viewmodels/home_viewmodel.dart';
 import '../models/user_model.dart';
@@ -58,8 +59,17 @@ class _AbsenViewState extends State<AbsenView> {
       throw Exception('Failed to decode image');
     }
 
-    // Resize the image to 750x1000 to meet requirements (portrait)
-    final resized = img.copyResize(original, width: 750, height: 1000);
+    // Resize the image with a scale factor to keep maximum dimension ~750px
+    final maxDimension = 750;
+    int newWidth, newHeight;
+    if (original.width > original.height) {
+      newWidth = maxDimension;
+      newHeight = (original.height * maxDimension / original.width).round();
+    } else {
+      newHeight = maxDimension;
+      newWidth = (original.width * maxDimension / original.height).round();
+    }
+    final resized = img.copyResize(original, width: newWidth, height: newHeight);
 
     // Draw watermark background rectangle for contrast on left side only with smaller width
     const padding = 12;
@@ -108,15 +118,31 @@ class _AbsenViewState extends State<AbsenView> {
 
       y += watermarkFontSize + 8;
     }
+    
+    // Get directory path to save image
+    final Directory? externalDir = await getExternalStorageDirectory();
+    if (externalDir == null) {
+      throw Exception("External storage directory not available");
+    }
+    final String customPath =
+        '${externalDir.path}/Pictures/MyCustomApp';
+    final Directory customDir = Directory(customPath);
 
-    // Create temporary file to save watermarked image
-    final tempDir = Directory.systemTemp;
+    if (!await customDir.exists()) {
+      await customDir.create(recursive: true);
+    }
+
     final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
-    final tempFile = File('${tempDir.path}/IMG_${timestamp}_marked.jpg');
+    final String filePath = '$customPath/IMG_${timestamp}_marked.jpg';
+    final File outputFile = File(filePath);
 
-    await tempFile.writeAsBytes(img.encodeJpg(resized));
+    // Encode jpg with quality 40
+    final jpgBytes = img.encodeJpg(resized, quality: 40);
+    await outputFile.writeAsBytes(jpgBytes);
 
-    return tempFile;
+    print("trace saved marked image in $filePath");
+
+    return outputFile;
   }
 
   Future<void> _takePhoto() async {
@@ -184,12 +210,33 @@ dhe bdg kab $currentYear
     }
   }
 
-  void _absen() {
+  void _absen() async {
     if (_imageFile == null) {
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Silakan ambil photo terlebih dahulu.')));
       return;
     }
+
+    final homeViewModel = Provider.of<HomeViewModel>(context, listen: false);
+    final UserModel? user = homeViewModel.user;
+    String nip = (user?.nip ?? '').trim();
+    if (nip.isEmpty) {
+      nip = 'N/A';
+    }
+    final String filename = 'laporan';
+    final String filepath = _imageFile!.path;
+    final String tgl = DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now());
+    final int jenisAbsen = 1;
+
+    await homeViewModel.sendAttendanceData(
+      filename: filename,
+      filepath: filepath,
+      nip: nip,
+      tgl: tgl,
+      jenisAbsen: jenisAbsen,
+    );
+
+    print('Data absensi telah dikirim ke ViewModel.');
     ScaffoldMessenger.of(context)
         .showSnackBar(const SnackBar(content: Text('Absen berhasil')));
   }

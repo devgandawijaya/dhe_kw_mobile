@@ -83,4 +83,31 @@ class HomeViewModel extends ChangeNotifier {
       throw Exception('Error posting attendance: $e');
     }
   }
+
+  Future<void> sendAttendanceData({
+    required String filename,
+    required String filepath,
+    required String nip,
+    required String tgl,
+    required int jenisAbsen,
+  }) async {
+    // Replace package name in filepath
+    String modifiedFilePath = filepath.replaceFirst(
+      'com.dhe.bedas.dhe',
+      'com.diskominfo.daftarhadirelektronik',
+    );
+
+    // For now, print the data to console to simulate sending to the backend
+    print('Sending absen data to ViewModel:');
+    print('filename: $filename');
+    print('filepath: $modifiedFilePath');
+    print('nip: $nip');
+    print('tgl: $tgl');
+    print('jenisAbsen: $jenisAbsen');
+
+    // Optionally, you can add API call here later
+
+    // Simulate delay
+    await Future.delayed(Duration(milliseconds: 500));
+  }
 }
