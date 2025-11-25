@@ -2,8 +2,11 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:geolocator/geolocator.dart';
 
 import '../models/user_model.dart';
+import '../services/api_service.dart';
+import '../viewmodels/home_viewmodel.dart';
 
 class HomeView extends StatefulWidget {
   final String title;
@@ -37,7 +40,7 @@ class HomeView extends StatefulWidget {
 }
 
 class _HomeViewState extends State<HomeView> {
-  UserModel? _user;
+  late HomeViewModel _homeViewModel;
   final PageController _pageController = PageController();
   int _currentPage = 0;
 
@@ -77,7 +80,12 @@ class _HomeViewState extends State<HomeView> {
   @override
   void initState() {
     super.initState();
-    _loadUserData();
+    _homeViewModel = HomeViewModel();
+    _loadUserData().then((_) {
+      if (_homeViewModel.user != null) {
+        _homeViewModel.fetchAndSaveCoordinates();
+      }
+    });
     _pageController.addListener(() {
       int next = _pageController.page!.round();
       if (_currentPage != next) {
@@ -87,6 +95,7 @@ class _HomeViewState extends State<HomeView> {
       }
     });
   }
+
 
   @override
   void dispose() {
@@ -100,7 +109,7 @@ class _HomeViewState extends State<HomeView> {
     if (userJson != null) {
       final userMap = json.decode(userJson);
       setState(() {
-        _user = UserModel.fromJson(userMap);
+        _homeViewModel.user = UserModel.fromJson(userMap);
       });
     }
   }
@@ -158,7 +167,7 @@ class _HomeViewState extends State<HomeView> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            if (_user != null)
+            if (_homeViewModel.user != null)
             SizedBox(height: 20),
             Expanded(
               child: ListView(

@@ -49,6 +49,39 @@ class ApiService {
     }
   }
 
+  Future<dynamic> checkCoordinate({
+    required int userId,
+    required String latDevice,
+    required String longDevice,
+  }) async {
+    try {
+      final response = await _dio.post(
+        'http://31.97.222.142:2100/api/check_coordinate',
+        data: {
+          'user_id': userId,
+          'lat_device': latDevice,
+          'long_device': longDevice,
+        },
+        options: Options(contentType: Headers.jsonContentType),
+      );
+
+      if (response.data['success'] == true) {
+        final data = response.data['data'];
+        if (data is Map<String, dynamic>) {
+          return data;
+        } else if (data is List) {
+          return data;
+        } else {
+          throw Exception('Unexpected data type from API');
+        }
+      } else {
+        throw Exception(response.data['message'] ?? 'Coordinate check failed');
+      }
+    } on DioError catch (e) {
+      throw Exception('Failed to check coordinate: ${e.message}');
+    }
+  }
+
   Future<bool> checkToken(String nip, String token) async {
     try {
       final response = await _dio.post(
