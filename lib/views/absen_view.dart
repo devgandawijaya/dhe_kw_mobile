@@ -111,9 +111,10 @@ class _AbsenViewState extends State<AbsenView> {
 
     // Create temporary file to save watermarked image
     final tempDir = Directory.systemTemp;
-    final tempFile = File('${tempDir.path}/${DateTime.now().millisecondsSinceEpoch}.png');
+    final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
+    final tempFile = File('${tempDir.path}/IMG_${timestamp}_marked.jpg');
 
-    await tempFile.writeAsBytes(img.encodePng(resized));
+    await tempFile.writeAsBytes(img.encodeJpg(resized));
 
     return tempFile;
   }
@@ -127,32 +128,48 @@ class _AbsenViewState extends State<AbsenView> {
         final homeViewModel = Provider.of<HomeViewModel>(context, listen: false);
         final UserModel? user = homeViewModel.user;
 
-        String nip = user?.nip ?? '';
+        String nip = (user?.nip ?? '').trim();
+        print('Debug: user.nip = $nip');
+        if (nip.isEmpty) {
+          nip = 'N/A';
+        }
+
         String currentYear = DateFormat('yyyy').format(DateTime.now());
 
         Map<String, dynamic>? coordinateData = await _getCoordinateData();
+        print('Debug: coordinateData = $coordinateData');
 
         String latLong = '';
         if (coordinateData != null &&
             coordinateData['lat'] != null &&
             coordinateData['long'] != null) {
-          latLong = '${coordinateData['lat']}, ${coordinateData['long']}';
-        } else if (user != null && user.lat.isNotEmpty && user.long.isNotEmpty) {
-          latLong = '${user.lat}, ${user.long}';
+          final lat = coordinateData['lat'].toString().trim();
+          final long = coordinateData['long'].toString().trim();
+          latLong = '$lat, $long';
+        } else if (user != null &&
+            user.lat.isNotEmpty &&
+            user.long.isNotEmpty) {
+          latLong = '${user.lat.trim()}, ${user.long.trim()}';
+        }
+        latLong = latLong.trim();
+        print('Debug: latLong = $latLong');
+        if (latLong.isEmpty) {
+          latLong = 'N/A';
         }
 
         String? ipAddress = await _getIpAddress();
         ipAddress ??= ''; // fallback empty string if null
+        print('Debug: ipAddress = $ipAddress');
 
         String watermarkText = '''
-        Status: absen masuk
-        IMEI HP: null
-        APIP: $ipAddress
-        LAT-LONG: $latLong
-        TGL-JAM: ${DateFormat('dd/MM/yyyy HH:mm:ss').format(DateTime.now())}
-        NIP: $nip
-        dhe bdg kab $currentYear
-        ''';
+Status: absen masuk
+IMEI HP: null
+APIP: $ipAddress
+LAT-LONG: $latLong
+TGL-JAM: ${DateFormat('dd/MM/yyyy HH:mm:ss').format(DateTime.now())}
+NIP: $nip
+dhe bdg kab $currentYear
+''';
 
         File watermarkedFile =
             await _addWatermark(File(pickedFile.path), watermarkText);
