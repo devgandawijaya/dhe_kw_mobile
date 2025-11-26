@@ -6,6 +6,7 @@ import 'dart:convert';  // Add this import for jsonDecode
 import 'package:dhe/models/lokasi_model.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:network_info_plus/network_info_plus.dart' show NetworkInfo;
 import 'package:provider/provider.dart';
 import 'package:hive/hive.dart';
 import 'package:intl/intl.dart';
@@ -48,8 +49,13 @@ class _AbsenViewState extends State<AbsenView> {
     super.didChangeDependencies();
 
     // Ambil nilai hanya sekali
-    skpdId ??= ModalRoute.of(context)!.settings.arguments as int?;
-    print("SKPD ID: $skpdId");
+    if (skpdId == null) {
+      final args = ModalRoute.of(context)?.settings.arguments;
+      if (args is int) {
+        skpdId = args;
+        print("SKPD ID (didChangeDependencies): $skpdId");
+      }
+    }
   }
 
 
@@ -67,12 +73,15 @@ class _AbsenViewState extends State<AbsenView> {
         _user = UserModel.fromJson(userMap);
       });
     }
-
+    print('latlong: dsds');
     if (coordinateJson != null) {
       final coordinateMap = json.decode(coordinateJson);
       setState(() {
         _lokasiModel = LokasiModel.fromJson(coordinateMap);
+        print('latlong: ${_lokasiModel?.lat}');
       });
+    }else{
+      print('latlong: kosong');
     }
   }
 
@@ -97,20 +106,7 @@ class _AbsenViewState extends State<AbsenView> {
      }
    }
 
-  Future<Map<String, dynamic>?> _getCoordinateData() async {
-    final coordinateBox = Hive.box('coordinateBox');
-    final coordString = coordinateBox.get('coordinate_data');
-    if (coordString != null) {
-      try {
-        final Map<String, dynamic> data = Map<String, dynamic>.from(
-            await Future.value(jsonDecode(coordString)));
-        return data;
-      } catch (e) {
-        print('Error decoding coordinate_data: $e');
-      }
-    }
-    return null;
-  }
+
 
   Future<File> _addWatermark(File originalImage, String watermarkText) async {
     final bytes = await originalImage.readAsBytes();
@@ -241,8 +237,58 @@ dhe bdg kab $currentYear
     }
   }
 
+   String _mapJenisAbsen(int jenisAbsen) {
+     switch (jenisAbsen) {
+       case 1:
+         return "masuk";
+       case 2:
+         return "pulang";
+       case 3:
+         return "lembur_masuk";
+       case 4:
+         return "lembur_pulang";
+       default:
+         throw Exception("Jenis absen tidak valid: $jenisAbsen");
+     }
+   }
+
+
+   String getCurrentTglJam() {
+     final now = DateTime.now();
+     final formatter = DateFormat('yyyy-MM-dd HH:mm:ss');
+     return formatter.format(now);
+   }
+
+   String getCurrentDate() {
+     final now = DateTime.now();
+     final formatter = DateFormat('yyyy-MM-dd');
+     return formatter.format(now);
+   }
+
+   Future<String?> getApMac() async {
+     final info = NetworkInfo();
+     try {
+       final bssid = await info.getWifiBSSID();
+       return bssid; // bisa null jika gagal
+     } catch (e) {
+       print("Gagal mendapatkan apMac: $e");
+       return null;
+     }
+   }
+
+   Future<String?> getDeviceIp() async {
+     final info = NetworkInfo();
+     try {
+       final ip = await info.getWifiIP(); // IP WiFi device
+       return ip; // bisa null jika tidak tersambung WiFi
+     } catch (e) {
+       print("Gagal mendapatkan IP: $e");
+       return null;
+     }
+   }
+
   void _absen() async {
-     
+
     if (_imageFile == null) {
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Silakan ambil photo terlebih dahulu.')));
@@ -256,24 +302,67 @@ dhe bdg kab $currentYear
     final String tgl = DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now());
     final int jenisAbsen = 1;
 
-    await homeViewModel.sendAttendanceData(
+    bool isSuccess = await homeViewModel.sendAttendanceData(
       filename: filename,
       filepath: filepath,
       nip: _user!.nip,
       tgl: tgl,
       latlong: "${_lokasiModel?.lat ?? ''} ${_lokasiModel?.long ?? ''}",
+      lat : _lokasiModel?.lat ?? '',
+      lon : _lokasiModel?.long ?? '',
       jenisAbsen: jenisAbsen,
     );
 
-    print('Data absensi telah dikirim ke ViewModel.');
-    ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('Absen berhasil')));
+
+    if(isSuccess){
+
+      String _absens = _mapJenisAbsen(jenisAbsen);
+      String _apmac = await getApMac() ?? '';
+      String _ip = await getDeviceIp() ?? '';
+
+     bool isAbsen = await homeViewModel.sendStoreAbsensiData(
+         pegawaiId: _user!.pegawaiId,
+         nip: _user!.nip,
+         jenisAbsen: _absens,
+         lat: _lokasiModel?.lat ?? '',
+         lon: _lokasiModel?.long ?? '',
+         apMac: _apmac,
+         apIp: _ip,
+         ip: _ip,
+         imei: '',
+         tglJam: getCurrentTglJam(),
+         tgl: getCurrentDate(),
+         dari: getCurrentDate(),
+         sampai: getCurrentDate()
+     );
+
+     if(isAbsen){
+       ScaffoldMessenger.of(context).showSnackBar(
+         const SnackBar(
+           content: Text('Absen Berhasil'),
+           backgroundColor: Colors.green,
+           duration: Duration(seconds: 2),
+         ),
+       );
+
+       // delay agar snackBar sempat tampil
+       Future.delayed(const Duration(milliseconds: 500), () {
+         if (context.mounted) Navigator.pop(context, true);
+       });
+
+     }else{
+       ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Absen gagal')));
+     }
+    }else{
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Absen gagal')));
+    }
+
   }
 
   @override
   Widget build(BuildContext context) {
-
-    final skpdId = ModalRoute.of(context)!.settings.arguments as int?;
 
     return Scaffold(
       appBar: AppBar(

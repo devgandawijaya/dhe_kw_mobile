@@ -36,7 +36,15 @@ class RouteGenerator {
           },
         );
       case Routes.pulangView:
-        return MaterialPageRoute(builder: (_) => const PulangView());
+        return MaterialPageRoute(
+          builder: (context) {
+            final skpdId = settings.arguments as int?;
+            return ChangeNotifierProvider(
+              create: (_) => HomeViewModel(),
+              child: PulangView(skpdId: skpdId),
+            );
+          },
+        );
       default:
         return MaterialPageRoute(
           builder: (_) => Scaffold(
