@@ -173,7 +173,7 @@ class HomeViewModel extends ChangeNotifier {
     required String dari,
     required String sampai,
     String note = '',
-    String photoSts = '',
+    int photoSts = 1,
     int filests = 1,
     String fileext = 'pdf',
   }) async {

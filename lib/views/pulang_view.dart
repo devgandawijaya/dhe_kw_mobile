@@ -1,29 +1,30 @@
 import 'dart:io';
 import 'dart:typed_data';
-import 'dart:convert';  // Add this import for jsonDecode
-// Removed import 'dart:ui' as ui;
+import 'dart:convert';
+import 'dart:ui' as ui;
+import 'dart:async';
 
 import 'package:dhe/models/lokasi_model.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:network_info_plus/network_info_plus.dart' show NetworkInfo;
+import 'package:network_info_plus/network_info_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:hive/hive.dart';
 import 'package:intl/intl.dart';
 import 'package:dart_ipify/dart_ipify.dart';
 import 'package:image/image.dart' as img;
 import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as path;
 
 import '../viewmodels/home_viewmodel.dart';
 import '../models/user_model.dart';
 
 class PulangView extends StatefulWidget {
   const PulangView({Key? key, this.skpdId}) : super(key: key);
-
   final int? skpdId;
 
   @override
-  _PulangViewState createState() => _PulangViewState();
+  State<PulangView> createState() => _PulangViewState();
 }
 
 class _PulangViewState extends State<PulangView> {
@@ -31,209 +32,226 @@ class _PulangViewState extends State<PulangView> {
   LokasiModel? _lokasiModel;
   File? _imageFile;
   final ImagePicker _picker = ImagePicker();
-
-  int? skpdId; // ← Penting!
-
+  int? skpdId;
 
   @override
   void initState() {
     super.initState();
+    skpdId = widget.skpdId;
     _loadUserData();
-    skpdId = widget.skpdId; // ← Ambil dari constructor
-    print("SKPD ID: $skpdId");
   }
-
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-
-    // Ambil nilai hanya sekali
     if (skpdId == null) {
       final args = ModalRoute.of(context)?.settings.arguments;
-      if (args is int) {
-        skpdId = args;
-        print("SKPD ID (didChangeDependencies): $skpdId");
-      }
+      if (args is int) skpdId = args;
     }
   }
 
-
-
   Future<void> _loadUserData() async {
-    final box = await Hive.openBox('userBox');
-    final userJson = box.get('user');
+    final userBox = await Hive.openBox('userBox');
+    final coordBox = await Hive.openBox('coordinateBox');
 
-    final coordinate = await Hive.openBox('coordinateBox');
-    final coordinateJson = coordinate.get('coordinate_data');
+    final userJson = userBox.get('user');
+    final coordJson = coordBox.get('coordinate_data');
 
     if (userJson != null) {
-      final userMap = json.decode(userJson);
-      setState(() {
-        _user = UserModel.fromJson(userMap);
-      });
+      final map = json.decode(userJson);
+      _user = UserModel.fromJson(map);
     }
-    print('latlong: dsds');
-    if (coordinateJson != null) {
-      final coordinateMap = json.decode(coordinateJson);
-      setState(() {
-        _lokasiModel = LokasiModel.fromJson(coordinateMap);
-        print('latlong: ${_lokasiModel?.lat}');
-      });
-    }else{
-      print('latlong: kosong');
+
+    if (coordJson != null) {
+      final map = json.decode(coordJson);
+      _lokasiModel = LokasiModel.fromJson(map);
     }
+
+    if (mounted) setState(() {});
   }
 
   Future<String?> _getIpAddress() async {
     try {
-      final ip = await Ipify.ipv4();
-      return ip;
+      return await Ipify.ipv4();
     } catch (e) {
-      print('Error getting IP address: $e');
-      return null;
+      return "Tidak terdeteksi";
     }
   }
 
-  String getAbsenType(int? skpdId) {
-    switch (skpdId) {
+  String getAbsenType(int? id) {
+    switch (id) {
       case 1:
         return "Absen Masuk";
       case 2:
         return "Absen Pulang";
       default:
-        return "Tidak diketahui";
+        return "Absen";
     }
   }
 
-
-
+  // ==================== WATERMARK + DECODE AMAN ====================
   Future<File> _addWatermark(File originalImage, String watermarkText) async {
-    final bytes = await originalImage.readAsBytes();
-    img.Image? original = img.decodeImage(bytes);
+    final Uint8List bytes = await originalImage.readAsBytes();
 
-    if (original == null) {
-      throw Exception('Failed to decode image');
+    // DECODE GAMBAR – 100% AMAN (support HEIC, WebP, dll)
+    final img.Image? image = await _decodeImageSafely(bytes);
+    if (image == null) {
+      throw Exception("Gagal membaca gambar. Format tidak didukung atau file rusak.");
     }
 
-    // Resize the image with a scale factor to keep maximum dimension ~750px
-    final maxDimension = 750;
-    int newWidth, newHeight;
-    if (original.width > original.height) {
-      newWidth = maxDimension;
-      newHeight = (original.height * maxDimension / original.width).round();
-    } else {
-      newHeight = maxDimension;
-      newWidth = (original.width * maxDimension / original.height).round();
+    // Resize max 750px
+    final maxDim = 750;
+    img.Image resized = image;
+    if (image.width > maxDim || image.height > maxDim) {
+      resized = image.width > image.height
+          ? img.copyResize(image, width: maxDim)
+          : img.copyResize(image, height: maxDim);
     }
-    final resized = img.copyResize(original, width: newWidth, height: newHeight);
 
-    // Draw watermark background rectangle for contrast on left side only with smaller width
-    const padding = 12;
-    const watermarkFontSize = 24;
-    final lines = watermarkText.split('\n');
-    int totalHeight = lines.length * (watermarkFontSize + 8);
+    // Background watermark (sisi kiri)
+    const padding = 16;
+    const fontSize = 26;
+    final lines = watermarkText
+        .split('\n')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
 
-    // Define watermark rectangle dimensions: narrow vertical bar on left
-    int rectWidth = 200; // limited width to avoid face covering
-    int x1 = padding ~/ 2;
-    int y1 = resized.height - totalHeight - padding;
-    int x2 = x1 + rectWidth;
-    int y2 = resized.height - padding ~/ 2;
+    final lineHeight = fontSize + 10;
+    final totalTextHeight = lines.length * lineHeight;
+
+    final rectWidth = 240;
+    final rectX1 = padding ~/ 2;
+    final rectY1 = resized.height - totalTextHeight - padding * 2;
+    final rectX2 = rectX1 + rectWidth;
+    final rectY2 = resized.height - padding;
 
     img.fillRect(
       resized,
-      x1: x1,
-      y1: y1,
-      x2: x2,
-      y2: y2,
-      color: img.ColorUint8.rgba(0, 0, 0, 128), // 50% opacity black
+      x1: rectX1,
+      y1: rectY1,
+      x2: rectX2,
+      y2: rectY2,
+      color: img.ColorUint8.rgba(0, 0, 0, 150), // semi-transparan hitam
     );
 
-    // Draw each line of watermark text along the left side area with shadow
-    int y = y1 + 4; // small offset from rectangle top
+    // Tulis teks dengan shadow
+    int y = rectY1 + padding;
     for (String line in lines) {
-      // Draw shadow (black, offset +1,+1)
-      img.drawString(
-        resized,
-        line,
-        font: img.arial24,
-        x: x1 + padding,
-        y: y + 1,
-        color: img.ColorUint8.rgba(0, 0, 0, 200),
-      );
+      // Shadow
+      img.drawString(resized, line,
+          font: img.arial24,
+          x: rectX1 + padding + 1,
+          y: y + 1,
+          color: img.ColorUint8.rgba(0, 0, 0, 200));
 
-      // Draw main text (white, semi-transparent)
-      img.drawString(
-        resized,
-        line,
-        font: img.arial24,
-        x: x1 + padding,
-        y: y,
-        color: img.ColorUint8.rgba(255, 255, 255, 180),
-      );
+      // Teks utama
+      img.drawString(resized, line,
+          font: img.arial24,
+          x: rectX1 + padding,
+          y: y,
+          color: img.ColorUint8.rgba(255, 255, 255, 240));
 
-      y += watermarkFontSize + 8;
+      y += lineHeight;
     }
 
-    // Get directory path to save image
-    final Directory? externalDir = await getExternalStorageDirectory();
-    if (externalDir == null) {
-      throw Exception("External storage directory not available");
-    }
-    final String customPath =
-        '${externalDir.path}/Pictures/MyCustomApp';
-    final Directory customDir = Directory(customPath);
+    // Simpan file
+    final String saveDir = await _getSaveDirectory();
+    final String timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
+    final String fileName = 'ABSEN_${timestamp}_wm.jpg';
+    final String fullPath = path.join(saveDir, fileName);
 
-    if (!await customDir.exists()) {
-      await customDir.create(recursive: true);
-    }
+    final jpgBytes = img.encodeJpg(resized, quality: 88);
+    final File finalFile = File(fullPath);
+    await finalFile.writeAsBytes(jpgBytes);
 
-    final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
-    final String filePath = '$customPath/IMG_${timestamp}_marked.jpg';
-    final File outputFile = File(filePath);
-
-    // Encode jpg with quality 40
-    final jpgBytes = img.encodeJpg(resized, quality: 40);
-    await outputFile.writeAsBytes(jpgBytes);
-
-    print("trace saved marked image in $filePath");
-
-    return outputFile;
+    print("Foto watermark selesai → $fullPath");
+    return finalFile;
   }
 
+  // DECODE GAMBAR DENGAN FALLBACK KE FLUTTER ENGINE (PASTI BISA!)
+  Future<img.Image?> _decodeImageSafely(Uint8List bytes) async {
+    // 1. Coba package image (v4+ sudah support HEIC & WebP)
+    var image = img.decodeImage(bytes);
+    if (image != null) return image;
+
+    // 2. Coba decode manual
+    image = img.decodeJpg(bytes) ??
+        img.decodePng(bytes) ??
+        img.decodeWebP(bytes) ??
+        img.decodeGif(bytes) ??
+        img.decodeBmp(bytes);
+    if (image != null) return image;
+
+    // 3. Fallback terakhir: Flutter native decoder
+    try {
+      final codec = await ui.instantiateImageCodec(bytes);
+      final frame = await codec.getNextFrame();
+      final uiImage = frame.image;
+
+      final byteData = await uiImage.toByteData(format: ui.ImageByteFormat.png);
+      if (byteData == null) return null;
+
+      final pngBytes = byteData.buffer.asUint8List();
+      return img.decodePng(pngBytes);
+    } catch (e) {
+      print("Semua decode gagal: $e");
+      return null;
+    }
+  }
+
+  // Folder simpan (Android + iOS)
+  Future<String> _getSaveDirectory() async {
+    Directory? baseDir;
+    if (Platform.isAndroid) {
+      baseDir = await getExternalStorageDirectory();
+      baseDir ??= Directory('/storage/emulated/0/Pictures');
+    } else {
+      baseDir = await getApplicationDocumentsDirectory();
+    }
+
+    final String appDir = path.join(baseDir!.path, 'MyCustomApp');
+    final Directory dir = Directory(appDir);
+    if (!await dir.exists()) {
+      await dir.create(recursive: true);
+    }
+    return appDir;
+  }
+
+  // ==================== AMBIL FOTO ====================
   Future<void> _takePhoto() async {
     try {
-      final XFile? pickedFile =
-      await _picker.pickImage(source: ImageSource.camera);
-      if (pickedFile != null) {
-        // Prepare watermark text
+      final XFile? picked = await _picker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 95,
+        preferredCameraDevice: CameraDevice.rear,
+      );
 
-        String nip = _user?.nip ?? '';
-        String currentYear = DateFormat('yyyy').format(DateTime.now());
-        String latLong = "${_lokasiModel?.lat ?? ''} ${_lokasiModel?.long ?? ''}";
-        String? ipAddress = await _getIpAddress();
+      if (picked == null) return;
 
-        String watermarkText = '''
-Status: ${getAbsenType(skpdId)}
-IMEI HP: null
-APIP: $ipAddress
-LAT-LONG: $latLong
-TGL-JAM: ${DateFormat('dd/MM/yyyy HH:mm:ss').format(DateTime.now())}
-NIP: $nip
-dhe bdg kab $currentYear
-''';
+      final String ip = await _getIpAddress() ?? "Tidak terdeteksi";
+      final String latlong = "${_lokasiModel?.lat ?? ''} ${_lokasiModel?.long ?? ''}";
 
-        File watermarkedFile =
-        await _addWatermark(File(pickedFile.path), watermarkText);
+      final String watermarkText = '''
+${getAbsenType(skpdId)}
+NIP: ${_user?.nip ?? '-'}
+IP: $ip
+LAT-LONG: $latlong
+${DateFormat('dd MMM yyyy HH:mm:ss').format(DateTime.now())}
+dhe bdg kab ${DateTime.now().year}
+© All Rights Reserved''';
 
-        setState(() {
-          _imageFile = watermarkedFile;
-        });
-      }
+      final File watermarkedFile = await _addWatermark(File(picked.path), watermarkText);
+
+      setState(() {
+        _imageFile = watermarkedFile;
+      });
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal mengambil photo: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Gagal ambil foto: $e")),
+        );
+      }
     }
   }
 
@@ -287,40 +305,35 @@ dhe bdg kab $currentYear
     }
   }
 
+  // ==================== KIRIM ABSEN ====================
   void _absen() async {
-
     if (_imageFile == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Silakan ambil photo terlebih dahulu.')));
+        const SnackBar(content: Text('Ambil foto dulu!')),
+      );
       return;
     }
 
-    final homeViewModel = Provider.of<HomeViewModel>(context, listen: false);
+    final vm = Provider.of<HomeViewModel>(context, listen: false);
 
-    final String filename = 'laporan';
-    final String filepath = _imageFile!.path;
-    final String tgl = DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now());
-    final int jenisAbsen = 1;
-
-    bool isSuccess = await homeViewModel.sendAttendanceData(
-      filename: filename,
-      filepath: filepath,
+    final bool success = await vm.sendAttendanceData(
+      filename: path.basename(_imageFile!.path),
+      filepath: _imageFile!.path,
       nip: _user!.nip,
-      tgl: tgl,
-      latlong: "${_lokasiModel?.lat ?? ''} ${_lokasiModel?.long ?? ''}",
-      lat : _lokasiModel?.lat ?? '',
-      lon : _lokasiModel?.long ?? '',
-      jenisAbsen: jenisAbsen,
+      tgl: DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now()),
+      latlong: "${_lokasiModel?.lat} ${_lokasiModel?.long}",
+      lat: _lokasiModel?.lat ?? '',
+      lon: _lokasiModel?.long ?? '',
+      jenisAbsen: skpdId ?? 1,
     );
 
+    if (success) {
 
-    if(isSuccess){
-
-      String _absens = _mapJenisAbsen(jenisAbsen);
+      String _absens = _mapJenisAbsen(skpdId ?? 1);
       String _apmac = await getApMac() ?? '';
       String _ip = await getDeviceIp() ?? '';
 
-      bool isAbsen = await homeViewModel.sendStoreAbsensiData(
+      bool isAbsen = await vm.sendStoreAbsensiData(
           pegawaiId: _user!.pegawaiId,
           nip: _user!.nip,
           jenisAbsen: _absens,
@@ -332,8 +345,8 @@ dhe bdg kab $currentYear
           imei: '',
           tglJam: getCurrentTglJam(),
           tgl: getCurrentDate(),
-          dari: getCurrentDate(),
-          sampai: getCurrentDate()
+          dari: '',
+          sampai: ''
       );
 
       if(isAbsen){
@@ -354,26 +367,33 @@ dhe bdg kab $currentYear
         ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Absen gagal')));
       }
-    }else{
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Absen gagal')));
-    }
 
+      // ScaffoldMessenger.of(context).showSnackBar(
+      //   const SnackBar(
+      //     content: Text("Absen berhasil!"),
+      //     backgroundColor: Colors.green,
+      //   ),
+      // );
+      // Future.delayed(const Duration(milliseconds: 800), () {
+      //   if (mounted) Navigator.pop(context, true);
+      // });
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Absen gagal")),
+      );
+    }
   }
 
+  // ==================== UI ====================
   @override
   Widget build(BuildContext context) {
-
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            Navigator.of(context).pop();
-          },
-          tooltip: 'Kembali',
+          onPressed: () => Navigator.pop(context),
         ),
-        title: const Text('Absen Pulang'),
+        title: Text(getAbsenType(skpdId)),
         centerTitle: true,
       ),
       body: Padding(
@@ -381,36 +401,43 @@ dhe bdg kab $currentYear
         child: Column(
           children: [
             Card(
-              elevation: 4,
-              shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              elevation: 6,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               child: Container(
-                height: 250,
+                height: 320,
                 width: double.infinity,
-                alignment: Alignment.center,
+                decoration: BoxDecoration(borderRadius: BorderRadius.circular(16)),
                 child: _imageFile == null
-                    ? const Text(
-                  'Belum ada photo',
-                  style: TextStyle(fontSize: 18, color: Colors.grey),
+                    ? const Center(
+                  child: Text(
+                    "Belum ada foto",
+                    style: TextStyle(fontSize: 18, color: Colors.grey),
+                  ),
                 )
-                    : Image.file(_imageFile!, fit: BoxFit.contain),
+                    : ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Image.file(_imageFile!, fit: BoxFit.contain),
+                ),
               ),
             ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _takePhoto,
-                child: const Text('Ambil Photo'),
+            const SizedBox(height: 30),
+            ElevatedButton(
+              onPressed: _takePhoto,
+              style: ElevatedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 56),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
+              child: const Text("Ambil Foto", style: TextStyle(fontSize: 17)),
             ),
             const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _absen,
-                child: const Text('Absen Pulang'),
+            ElevatedButton(
+              onPressed: _absen,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                minimumSize: const Size(double.infinity, 56),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
+              child: const Text("Kirim Absen", style: TextStyle(fontSize: 17, color: Colors.white)),
             ),
           ],
         ),

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io' show File;
 
 import 'package:dhe/models/absensi_model.dart';
+import 'package:dhe/models/attendance_model.dart' show AttendanceModel;
 import 'package:dio/dio.dart';
 import '../models/lokasi_model.dart' show LokasiModel;
 import '../models/user_model.dart';
@@ -54,6 +55,44 @@ class ApiService {
       throw Exception('Failed to login: ${e.message}');
     }
   }
+
+
+  Future<List<AttendanceModel>> fetchDataAbsen({
+    required int pegawaiId,
+    required int bulan,
+    required int tahun,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '/api/dataAbsen',
+        data: FormData.fromMap({
+          'pegawai_id': pegawaiId.toString(),
+          'bulan': bulan.toString(),
+          'tahun': tahun.toString(),
+        }),
+        options: Options(
+          contentType: Headers.formUrlEncodedContentType,
+        ),
+      );
+
+      final data = response.data;
+      if (data == null) return [];
+
+      if (data['status'] == 'success' && data['data'] is List) {
+        final list = List<Map<String, dynamic>>.from(data['data']);
+        return list.map((e) => AttendanceModel.fromJson(e)).toList();
+      } else {
+        // Jika server mengembalikan status lain, kembalikan list kosong
+        return [];
+      }
+    } on DioException catch (e) {
+      // logging sederhana; caller bisa tangani error lebih lanjut
+      throw Exception('ApiService.fetchDataAbsen failed: ${e.message}');
+    } catch (e) {
+      throw Exception('Unknown error: $e');
+    }
+  }
+
 
   Future<LokasiModel> checkCoordinate({
     required int userId,
@@ -256,7 +295,7 @@ curl -X POST "https://e-absensi.bandungkab.go.id/api/UploadImage" \\
     required String dari,
     required String sampai,
     String note = '',
-    String photoSts = '',
+    required int photoSts,
     int filests = 1,
     String fileext = 'pdf',
   }) async {
